@@ -19,7 +19,7 @@ export type Product = {
 export type Variant = { id: string; product_id: string; size: string; color: string; sku: string; stock: number };
 export type CartLine = { product: Product; variant: Variant; quantity: number };
 export type OrderStatus = "payment_pending" | "paid" | "preorder_waiting" | "preparing" | "shipped" | "delivered" | "cancelled" | "refunded";
-export type CustomerOrder = { id: string; status: OrderStatus; total_amount: number; created_at: string; order_items: { id: string; product_name: string; variant_label: string; quantity: number; line_total: number; image_url: string }[]; shipments?: { carrier: string; tracking_number: string }[] };
+export type CustomerOrder = { id: string; status: OrderStatus; total_amount: number; created_at: string; order_items: { id: string; product_name: string; variant_label: string; quantity: number; refunded_quantity: number; line_total: number; image_url: string }[]; shipments?: { carrier: string; tracking_number: string }[] };
 
 export const categories: { id: CategoryId; label: string }[] = [
   { id: "all", label: "전체" }, { id: "dresses", label: "드레스" }, { id: "tops", label: "상의" },
