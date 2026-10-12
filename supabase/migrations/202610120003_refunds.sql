@@ -17,6 +17,8 @@ begin
   if not found or v_request.status<>'requested' then raise exception '처리 가능한 요청이 아닙니다.'; end if;
   select * into v_order from public.orders where id=v_request.order_id for update;
   if v_order.status not in ('paid','preorder_waiting','preparing','shipped','delivered') then raise exception '환불할 수 없는 주문 상태입니다.'; end if;
+  if v_request.kind='cancel' and v_order.status in ('shipped','delivered') then raise exception '배송 시작 후에는 반품으로 접수해 주세요.'; end if;
+  if v_request.kind='return' and v_order.status not in ('shipped','delivered') then raise exception '배송 전에는 취소로 접수해 주세요.'; end if;
   select * into v_payment from public.payments where order_id=v_order.id for update;
   if not found then raise exception '결제 기록을 찾을 수 없습니다.'; end if;
   select coalesce(sum(quantity-refunded_quantity),0) into v_remaining from public.order_items where order_id=v_order.id;
