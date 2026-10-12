@@ -1,0 +1,5 @@
+import { NextRequest, NextResponse } from "next/server";
+import { fail, tokenFrom } from "@/lib/server";
+import { requireAdmin } from "@/lib/supabase";
+
+export async function POST(request:NextRequest){const context=await requireAdmin(tokenFrom(request));if(!context||!["owner","merchandiser"].includes(context.role))return fail("업로드 권한이 필요합니다.",403);const form=await request.formData();const file=form.get("file");if(!(file instanceof File))return fail("이미지를 선택해 주세요.");if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5_000_000)return fail("JPEG, PNG, WebP 이미지만 5MB 이하로 업로드할 수 있습니다.");const extension=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";const path=`products/${crypto.randomUUID()}.${extension}`;const {error}=await context.db.storage.from("product-images").upload(path,file,{contentType:file.type,upsert:false});if(error)return fail(error.message,500);const {data}=context.db.storage.from("product-images").getPublicUrl(path);return NextResponse.json({url:data.publicUrl});}

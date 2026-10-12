@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FULGERE 쇼핑몰
 
-## Getting Started
+한국어·원화 여성복 쇼핑몰의 Next.js 구현입니다. 고객 화면, 회원 기능, Supabase 데이터 모델, 관리자 화면, 토스페이먼츠 결제 처리 코드를 포함합니다.
 
-First, run the development server:
+## 현재 상태
+
+- 시연 화면은 `NEXT_PUBLIC_DEMO_MODE=true`일 때 샘플 상품 6개와 오리지널 화보로 동작합니다. 이 모드에서는 실제 결제를 막습니다.
+- 제공된 Supabase 프로젝트 URL과 공개 키는 로컬 `.env.local`에 연결했습니다. 프로젝트에 아직 `products` 테이블이 없으므로 마이그레이션은 미적용 상태입니다.
+- 서비스 역할 키, 토스페이먼츠 테스트 키, SMS 제공자, 카카오 채널, GitHub 저장소와 Vercel 프로젝트 정보가 없어 실제 주문·결제·배포는 아직 검증할 수 없습니다.
+- `npm run lint`, `npm run build`가 통과했습니다. 실제 결제와 데이터 접근 보안은 자격 증명을 연결한 후 별도 통합 검증이 필요합니다.
+
+## 로컬 실행
+
+Node.js 20.9 이상에서:
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Windows PowerShell에서는 `Copy-Item .env.example .env.local`을 사용하세요. `.env.local`은 Git에서 제외됩니다. 시연만 보려면 `NEXT_PUBLIC_DEMO_MODE=true`로 두고, 실제 연동 시 `false`로 바꾸세요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase 연결
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. `supabase/migrations`의 SQL 파일 001부터 007까지 순서대로 Supabase SQL Editor에서 적용합니다. 마지막 파일까지 적용한 뒤 앱을 이용하세요.
+2. Supabase Authentication의 이메일 인증을 켜고, 배포 주소와 `/auth/update-password`를 허용된 리디렉션 URL에 등록합니다.
+3. 가입 이메일 찾기에는 Supabase Phone Auth 및 SMS 제공자 설정이 필요합니다. 계정에서 휴대전화 인증을 완료한 회원의 가입 이메일을 OTP로 확인합니다.
+4. 첫 관리자 회원을 가입시킨 뒤 SQL Editor에서 아래 SQL의 주소를 실제 관리자 이메일로 바꾸어 실행합니다.
 
-## Learn More
+```sql
+update public.profiles set role = 'owner' where email = 'owner@example.com';
+```
 
-To learn more about Next.js, take a look at the following resources:
+5. 시연 상품이 필요하면 `supabase/seed.sql`을 적용합니다. 실제 판매 전 상품 사진·설명·가격·재고로 교체하세요.
+6. 서버 전용 `SUPABASE_SERVICE_ROLE_KEY`를 Vercel 환경 변수에 넣습니다. 공개 클라이언트 변수에 넣거나 Git에 커밋하지 마세요.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+공개 키만으로는 SQL 마이그레이션 적용이나 서버의 결제·관리자 작업을 할 수 없습니다. SQL Editor 접근 권한과 서비스 역할 키가 필요합니다.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 결제·배송 설정
 
-## Deploy on Vercel
+- 토스페이먼츠 테스트 클라이언트 키를 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, 테스트 시크릿 키를 `TOSS_SECRET_KEY`에 넣습니다. 테스트 결제 승인과 전체·부분 취소를 검증한 후 운영 키로 바꾸세요.
+- 토스페이먼츠 웹훅 URL은 `https://배포주소/api/toss/webhook`입니다. 수신된 결제 키로 토스 API의 실제 결제 상태를 다시 조회합니다.
+- Vercel의 `CRON_SECRET`을 설정하면 `/api/maintenance/expire`가 대기 주문의 예약 재고와 만료 포인트를 정리합니다. `vercel.json`의 10분 간격 실행을 지원하는 Vercel 요금제 및 크론 설정을 확인하세요.
+- `NEXT_PUBLIC_KAKAO_CHANNEL_URL`에 실제 카카오 채널 링크를 넣으면 고객센터에 상담 버튼이 표시됩니다.
+- 배송비, 무료배송 기준, 포인트 적립률과 유효기간은 관리자 화면의 운영 정책에서 설정합니다. 실제 택배사·송장번호는 주문별로 등록합니다.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 구현 범위
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+고객은 상품 분류·검색·필터·옵션·장바구니, 이메일 회원가입·로그인·비밀번호 재설정, 휴대전화 인증을 통한 가입 이메일 찾기, 주문·예약·배송·결제·포인트·쿠폰·문의 내역을 이용할 수 있습니다. 배송 완료 상품의 리뷰, 상품 Q&A, 자유 게시판, 예약 문의 게시판, FAQ 안내 챗봇과 카카오 상담 연결도 포함합니다.
+
+관리자는 역할에 따라 상품·옵션·재고·회원·주문·배송·문의·게시물·쿠폰·팝업·1+1 행사·공급처·포장 자재와 정책을 관리합니다. 결제 전 서버에서 가격·쿠폰·포인트·재고를 다시 계산하고, 결제 대기 재고 예약과 승인·취소 처리는 데이터베이스 함수로 묶었습니다. 다른 회원의 비공개 주문·문의·예약 조회는 RLS로 제한합니다.
+
+거래명세서 인쇄 화면과 토스 영수증 링크가 있습니다. 전자세금계산서 발행, 제조 공정과 원가 계산은 PRD의 1차 범위에서 제외됩니다. 환불·반품의 실제 운영 기준, 상품 실측, 약관·개인정보 처리방침, 사업자 정보는 정식 출시 전에 확정해야 합니다.
+
+## 출시 전 검증
+
+1. 마이그레이션 후 이메일 가입·인증, 휴대전화 OTP, 고객별 RLS 접근을 확인합니다.
+2. 토스 테스트 결제로 정상 주문, 동시 재고 경합, 중복 승인·웹훅, 유효 시간 만료, 포인트 전액 결제를 확인합니다.
+3. 전체·부분 취소와 반품에서 토스 취소액, 쿠폰 사용 수, 포인트 원장, 1+1 재고가 일치하는지 확인합니다.
+4. 관리자 권한별 접근, 배송 상태, 증빙 인쇄, 모바일 화면을 확인합니다.
+5. GitHub 저장소를 연결하고 Vercel 미리보기 배포에서 위 흐름을 다시 검증한 뒤 운영 배포합니다.
