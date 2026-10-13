@@ -21,6 +21,14 @@ export function getAdminSupabase() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
+function getUserScopedSupabase(token: string) {
+  if (!url || !publishable) return null;
+  return createClient(url, publishable, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 export async function getUserFromToken(token: string | null) {
   if (!token) return null;
   const client = getPublicSupabase();
@@ -31,7 +39,7 @@ export async function getUserFromToken(token: string | null) {
 
 export async function requireAdmin(token: string | null) {
   const user = await getUserFromToken(token);
-  const db = getAdminSupabase();
+  const db = getAdminSupabase() || (token ? getUserScopedSupabase(token) : null);
   if (!user || !db) return null;
   const { data } = await db.from("profiles").select("role,status").eq("id", user.id).single();
   return data?.status === "active" && ["owner", "merchandiser", "fulfillment", "support"].includes(data.role) ? { user, role: data.role as string, db } : null;

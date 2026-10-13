@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
   const queries = await Promise.all(names.map(async (name) => {
     const query = db.from(name).select("*").limit(100);
     const { data, error } = await query;
-    return [name, error ? [] : data || []] as const;
+    return { name, data: data || [], error };
   }));
-  return NextResponse.json({ role: context.role, data: Object.fromEntries(queries) });
+  const productError = queries.find((item) => ["categories", "products", "product_variants"].includes(item.name) && item.error);
+  if (productError) return fail(`상품 정보를 불러오지 못했습니다: ${productError.error?.message}`, 500);
+  return NextResponse.json({ role: context.role, data: Object.fromEntries(queries.map(({ name, data }) => [name, data])) });
 }

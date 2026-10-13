@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/supabase";
 const input = z.object({ action: z.string().min(1), id: z.string().optional(), payload: z.record(z.string(), z.unknown()).default({}) });
 const anyStaff = ["owner","merchandiser","fulfillment","support"];
 const permit: Record<string,string[]> = {
-  "product.save":["owner","merchandiser"], "variant.save":["owner","merchandiser","fulfillment"], "category.save":["owner","merchandiser"],
+  "product.save":["owner","merchandiser"], "product.delete":["owner","merchandiser"], "variant.save":["owner","merchandiser","fulfillment"], "category.save":["owner","merchandiser"],
   "member.status":["owner"], "member.points":["owner"], "order.status":["owner","fulfillment"], "shipment.add":["owner","fulfillment"],
   "ticket.answer":anyStaff, "post.hide":anyStaff, "post.reply":anyStaff, "review.hide":anyStaff, "request.reject":["owner","support"],
   "coupon.save":["owner","merchandiser"], "promotion.save":["owner","merchandiser"], "faq.save":["owner","support"],
@@ -21,7 +21,8 @@ export async function POST(request:NextRequest) {
   const {action,id,payload}=parsed.data; if(!permit[action]?.includes(context.role))return fail("이 작업을 수행할 권한이 없습니다.",403);
   const db=context.db; let result:unknown=null;
   try {
-    if(action==="product.save") { const values=productSchema.parse(payload); const query=id?db.from("products").update(values).eq("id",id):db.from("products").insert(values); const {data,error}=await query.select().single();if(error)throw error;result=data; }
+    if(action==="product.save") { const values=productSchema.parse(payload); const query=id?db.from("products").update({...values,updated_at:new Date().toISOString()}).eq("id",id):db.from("products").insert(values); const {data,error}=await query.select().single();if(error)throw error;result=data; }
+    if(action==="product.delete") { if(!id)return fail("상품 ID가 필요합니다.");const {data,error}=await db.from("products").delete().eq("id",id).select("id,name").maybeSingle();if(error?.code==="23503")return fail("주문·리뷰 등 연결된 기록이 있는 상품은 삭제할 수 없습니다. 상태를 '보관'으로 변경해 주세요.",409);if(error)throw error;if(!data)return fail("상품을 찾을 수 없습니다.",404);result=data; }
     if(action==="category.save") { const values=z.object({id:z.string().regex(/^[a-z0-9-]{2,40}$/),name:z.string().min(1).max(50),sort_order:z.number().int().min(0)}).parse(payload);const {data,error}=await db.from("categories").upsert(values).select().single();if(error)throw error;result=data; }
     if(action==="variant.save") { const values=z.object({product_id:z.uuid(),sku:z.string().min(2),size:z.string().min(1),color:z.string().min(1),stock:z.number().int().min(0)}).parse(payload); const query=id?db.from("product_variants").update(values).eq("id",id):db.from("product_variants").insert(values);const {data,error}=await query.select().single();if(error)throw error;result=data; }
     if(action==="member.status") { if(!id)throw Error("회원 ID가 필요합니다."); const {data,error}=await db.from("profiles").update({status:z.enum(["active","suspended"]).parse(payload.status)}).eq("id",id).select().single();if(error)throw error;result=data; }
