@@ -1,25 +1,4 @@
--- FULGERE commerce schema. Apply in the Supabase SQL editor or with Supabase CLI.
-create extension if not exists pgcrypto;
-
-create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null unique,
-  full_name text not null default '',
-  phone text not null default '',
-  phone_verified boolean not null default false,
-  customer_key uuid not null default gen_random_uuid(),
-  role text not null default 'customer' check (role in ('customer','owner','merchandiser','fulfillment','support')),
-  status text not null default 'active' check (status in ('active','suspended')),
-  points_balance integer not null default 0 check (points_balance >= 0),
-  created_at timestamptz not null default now()
-);
-create or replace function public.create_profile() returns trigger language plpgsql security definer set search_path=public as $$
-begin
-  insert into public.profiles(id,email,full_name,phone)
-  values(new.id,new.email,coalesce(new.raw_user_meta_data->>'full_name',''),coalesce(new.raw_user_meta_data->>'phone',''));
-  return new;
-end $$;
-create trigger on_auth_user_created after insert on auth.users for each row execute function public.create_profile();
+-- FULGERE commerce schema. Apply the auth profile migration first.
 
 create table public.categories (id text primary key, name text not null, sort_order integer not null default 0);
 insert into public.categories values ('dresses','드레스',1),('tops','상의',2),('trousers','바지',3),('knitwear','니트웨어',4),('tailoring','테일러링',5),('skirts','스커트',6),('jumpsuits','점프수트',7);
@@ -134,7 +113,6 @@ grant execute on function public.is_staff() to authenticated;
 
 -- Every exposed table has RLS. Server-only tables have no client write policies.
 do $$ declare t text; begin foreach t in array array['profiles','categories','products','product_variants','addresses','cart_items','coupons','orders','order_items','payments','point_ledger','shipments','service_requests','faq','tickets','posts','post_replies','post_reports','reviews','promotions','suppliers','purchase_orders','purchase_order_items','materials','inventory_movements','admin_audit'] loop execute format('alter table public.%I enable row level security',t); end loop; end $$;
-create policy profiles_own_read on public.profiles for select to authenticated using (id=auth.uid());
 create policy addresses_own on public.addresses for all to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
 create policy cart_own on public.cart_items for all to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
 create policy categories_public on public.categories for select to anon,authenticated using (true);
